@@ -1,0 +1,58 @@
+---
+- hosts: sudoer@web
+  sudo: yes
+  tasks:
+    - name: apt-get update and install depedencies for Ruby
+      apt: name={{item}} state=latest update_cache=yes
+      with_items:
+        - git-core
+        - curl
+        - zlib1g-dev
+        - build-essential
+        - libssl-dev
+        - libreadline-dev
+        - libyaml-dev
+        - libxml2-dev
+        - libxslt1-dev
+        - libcurl4-openssl-dev
+        - python-software-properties
+    - name: install depedencies for rvm
+      apt: name={{item}} state=latest
+      with_items:
+        - libgdbm-dev
+        - libncurses5-dev
+        - automake
+        - libtool
+        - bison
+        - libffi-dev
+    - name: install mysql
+      apt: name={{item}} state=latest
+      with_items:
+        - mysql-server
+        - libmysqld-dev
+    - name: start and enable mysql-server
+      service: name=mysql state=started enabled=yes
+    - name: install nginx
+      apt: name=nginx state=latest
+    - name: start and enable nginx
+      service: name=nginx state=started enabled=yes
+    - name: copy nginx.conf
+      copy: src=./files/nginx.conf dest=/etc/nginx/nginx.conf
+    - name: copy extend_index_limit.cnf
+      copy: src=./files/extend_index_limit.cnf dest=/etc/mysql/conf.d/extend_index_limit.cnf
+    - name: add a new user named webapp as a deployer
+      user: name=webapp shell="/bin/bash"
+    - name: add a ssh key for webapp
+      authorized_key: user=webapp key="{{lookup('file', './ss_production_deploy.pub')}}" state=present
+    - name: install packages necessary for ss
+      apt: name={{item}} state=latest
+      with_items:
+        - imagemagick
+
+- hosts: deployer@web
+  sudo: no
+  tasks:
+    - name: install rvm
+      script: ./scripts/install_rvm.sh
+    - name: install ruby (this may take a few minutes)
+      script: ./scripts/install_ruby.sh
